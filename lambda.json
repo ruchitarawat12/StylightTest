@@ -1,0 +1,160 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "S3StackName": {
+        "Description": "Name of an active CloudFormation stack that contains the S3 bucket info",
+        "Type": "String",
+        "Default" : "S3Stack"
+        },
+        "SnsStackName": {
+        "Description": "Name of an active CloudFormation stack that contains the SNS info",
+        "Type": "String",
+        "Default" : "SNSStack"
+        },
+        "CodeBucketName": {
+        "Description": "Name of bucket that has the zip file for code",
+        "Type": "String",
+        "Default" : "codebucket063211"
+        },
+        "CodeZipName": {
+        "Description": "Name of code zip file",
+        "Type": "String",
+        "Default" : "lambda.zip"
+        },
+        "WeeklyResourceBudget": {
+        "Description": "weekly budget amount in USD beyond which the resource will be considered expensive",
+        "Type": "Number",
+        "Default" : 10
+        },
+        "CronSchedule": {
+        "Description": "schedule for the lambda to run syntax : rate(Value Unit),  ",
+        "Type": "Number",
+        "Default" : "rate(5 days)"
+        }
+    },
+    "Resources": {
+        "LambdaExecutionRole": {
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": [
+                                "sts:AssumeRole"
+                            ],
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "lambda.amazonaws.com"
+                                ]
+                            }
+                        }
+                    ],
+                    "Version": "2012-10-17"
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Action": "s3:*",
+                                    "Effect": "Allow",
+                                    "Resource": "*"
+                                },
+
+                                {
+                                    "Action": "sns:*",
+                                    "Effect": "Allow",
+                                    "Resource": "*"
+                                },
+
+                                {
+                                    "Action": "ce:*",
+                                    "Effect": "Allow",
+                                    "Resource": "*"
+                                }
+                            ]
+                        },
+                        "PolicyName": "root"
+                    }
+                ]
+            },
+            "Type": "AWS::IAM::Role"
+        },
+        "LambdaFunction": {
+            "Properties": {
+                "Code": {
+                    "S3Bucket": {
+                        "Ref": "CodeBucketName"
+                    },
+                    "S3Key": {
+                        "Ref": "CodeZipName"
+                    }
+                },
+                "Handler": "lambda.lambda_handler",
+                "MemorySize": 128,
+                "Environment": {
+                    "Variables": {
+                        "sns_arn": { "Fn::ImportValue" :  {"Fn::Sub": "${SnsStackName}-TopicArn" } },
+                        "bucket_name": { "Fn::ImportValue" :  {"Fn::Sub": "${S3StackName}-ExpenseBucketName" } },
+                        "weekly_budget": {
+                        "Ref": "WeeklyResourceBudget"
+                        }
+                    }
+                },
+                "FunctionName": "resource_cost_finder",
+                "Architectures": [
+                    "arm64"
+                ],
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaExecutionRole",
+                        "Arn"
+                    ]
+                },
+                "Runtime": "python3.9",
+                "Timeout": 60
+            },
+            "Type": "AWS::Lambda::Function"
+        },
+        "LambdaFunctionSchedule": {
+            "Properties": {
+                "ScheduleExpression": {
+                    "Ref": "CronSchedule"
+                },
+                "Targets": [
+                    {
+                        "Arn": {
+                            "Fn::GetAtt": [
+                                "LambdaFunction",
+                                "Arn"
+                            ]
+                        },
+                        "Id": "1"
+                    }
+                ]
+            },
+            "Type": "AWS::Events::Rule"
+        },
+        "LambdaFunctionCwPermission": {
+            "Properties": {
+                "Action": "lambda:InvokeFunction",
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "LambdaFunction",
+                        "Arn"
+                    ]
+                },
+                "Principal": "events.amazonaws.com",
+                "SourceArn": {
+                    "Fn::GetAtt": [
+                        "LambdaFunctionSchedule",
+                        "Arn"
+                    ]
+                }
+            },
+            "Type": "AWS::Lambda::Permission"
+        }
+    }
+}

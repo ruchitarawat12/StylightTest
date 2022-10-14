@@ -1,0 +1,30 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Template to Create an SNS Topic and Subscriptions",
+  "Parameters": {
+    "BucketName": {
+      "Type": "String",
+      "Description": "Bucket name to keep weekly expense report",
+      "Default": "expense-bucket-9792618722111111"
+    }
+  },
+  "Resources": {
+    "ExpenseBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": {
+          "Ref": "BucketName"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ExpenseBucketName": {
+      "Description": "Name of the S3 bucket",
+      "Value": {
+        "Ref": "ExpenseBucket"
+      },
+      "Export" : { "Name" : {"Fn::Sub": "${AWS::StackName}-ExpenseBucketName"}}
+    }
+  }
+}

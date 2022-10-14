@@ -1,0 +1,44 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Template to Create an SNS Topic and Subscriptions",
+  "Parameters": {
+    "TopicName": {
+      "Type": "String",
+      "Description": "Topic Name",
+      "Default": "my-topic"
+    },
+    "EmailId": {
+      "Type": "String",
+      "Description": "Email ID to send notification",
+      "Default": "rookkjjhh@gmail.com"
+    }
+  },
+  "Resources": {
+    "MySNSTopic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "Subscription": [
+          {
+            "Endpoint": {
+              "Ref": "EmailId"
+            },
+            "Protocol": "email"
+          }
+        ],
+        "TopicName": {
+          "Ref": "TopicName"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "SNSTopicArn": {
+      "Description": "Arn of Created SNS Topic",
+      "Value": {
+        "Ref": "MySNSTopic"
+      },
+      "Export" : { "Name" : {"Fn::Sub": "${AWS::StackName}-TopicArn" }}
+    }
+  }
+}
+
